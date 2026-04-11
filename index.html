@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Digest</title>
+    <meta
+      name="description"
+      content="A mobile-friendly daily digest with device-local read, delete, and save actions."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f0e7;
+        --bg-strong: #efe4d5;
+        --surface: rgba(255, 252, 247, 0.9);
+        --surface-strong: #fffaf2;
+        --ink: #1d2430;
+        --ink-soft: #55606f;
+        --line: rgba(35, 41, 48, 0.12);
+        --accent: #0d6f63;
+        --accent-strong: #084c44;
+        --accent-soft: rgba(13, 111, 99, 0.12);
+        --danger: #ae3d2f;
+        --gold: #a67c2d;
+        --shadow: 0 24px 60px rgba(45, 38, 26, 0.08);
+        --radius-lg: 26px;
+        --radius-md: 18px;
+        --radius-sm: 999px;
+        --content-width: 1180px;
+        --masthead-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        --ui-font: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: var(--ui-font);
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 28%),
+          radial-gradient(circle at top right, rgba(13, 111, 99, 0.1), transparent 22%),
+          linear-gradient(180deg, #f9f4ed 0%, var(--bg) 42%, #efe3d4 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(109, 88, 47, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(109, 88, 47, 0.04) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 72%);
+      }
+
+      .shell {
+        width: min(calc(100% - 24px), var(--content-width));
+        margin: 0 auto;
+        padding: 24px 0 56px;
+      }
+
+      .masthead {
+        background:
+          linear-gradient(135deg, rgba(255, 250, 242, 0.92), rgba(247, 237, 223, 0.9)),
+          var(--surface);
+        border: 1px solid rgba(45, 38, 26, 0.08);
+        border-radius: 32px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .masthead::after {
+        content: "";
+        position: absolute;
+        inset: auto -10% -80px auto;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(13, 111, 99, 0.18), transparent 68%);
+      }
+
+      .masthead-inner {
+        padding: 28px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid rgba(35, 41, 48, 0.08);
+        color: var(--ink-soft);
+        font-size: 0.82rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 16px 0 12px;
+        font-family: var(--masthead-font);
+        font-size: clamp(2.6rem, 6vw, 4.8rem);
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+        max-width: 10ch;
+      }
+
+      .lede {
+        max-width: 60ch;
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+
+      .meta-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .meta-chip {
+        padding: 14px 16px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(35, 41, 48, 0.08);
+      }
+
+      .meta-chip strong {
+        display: block;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-soft);
+        margin-bottom: 6px;
+      }
+
+      .meta-chip span {
+        display: block;
+        font-size: 1rem;
+        color: var(--ink);
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin: 22px 0 20px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .tab-btn,
+      .action-btn,
+      .refresh-btn {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .tab-btn {
+        padding: 11px 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid rgba(35, 41, 48, 0.1);
+        background: rgba(255, 255, 255, 0.62);
+        color: var(--ink-soft);
+        transition:
+          transform 180ms ease,
+          background 180ms ease,
+          color 180ms ease,
+          border-color 180ms ease;
+      }
+
+      .tab-btn:hover,
+      .tab-btn:focus-visible {
+        transform: translateY(-1px);
+        outline: none;
+        color: var(--ink);
+        border-color: rgba(13, 111, 99, 0.3);
+      }
+
+      .tab-btn.active {
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        border-color: transparent;
+        box-shadow: 0 16px 30px rgba(13, 111, 99, 0.22);
+      }
+
+      .tab-btn small {
+        opacity: 0.7;
+        margin-left: 6px;
+      }
+
+      .refresh-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: var(--radius-sm);
+        background: var(--ink);
+        color: #fff;
+        box-shadow: 0 12px 26px rgba(29, 36, 48, 0.18);
+      }
+
+      .refresh-btn:hover,
+      .refresh-btn:focus-visible {
+        outline: none;
+        transform: translateY(-1px);
+      }
+
+      .info-note {
+        margin: 0 0 18px;
+        color: var(--ink-soft);
+        font-size: 0.94rem;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 240px;
+        padding: 22px;
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(255, 248, 240, 0.9));
+        border: 1px solid rgba(45, 38, 26, 0.08);
+        box-shadow: var(--shadow);
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.52), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(166, 124, 45, 0.09), transparent 34%);
+        pointer-events: none;
+      }
+
+      .card-header,
+      .card-footer {
+        position: relative;
+        z-index: 1;
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: var(--radius-sm);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .subtle-tag {
+        background: rgba(35, 41, 48, 0.07);
+        color: var(--ink-soft);
+      }
+
+      .card-title {
+        margin: 0;
+        font-family: var(--masthead-font);
+        font-size: 1.55rem;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+
+      .card-title a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .card-title a:hover,
+      .card-title a:focus-visible {
+        text-decoration: underline;
+        outline: none;
+      }
+
+      .summary {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--ink-soft);
+        line-height: 1.65;
+        flex: 1;
+      }
+
+      .card-footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .source-line {
+        color: var(--ink-soft);
+        font-size: 0.92rem;
+      }
+
+      .source-line strong {
+        color: var(--ink);
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(35, 41, 48, 0.1);
+        color: var(--ink);
+      }
+
+      .action-btn:hover,
+      .action-btn:focus-visible {
+        outline: none;
+        border-color: rgba(13, 111, 99, 0.32);
+        transform: translateY(-1px);
+      }
+
+      .action-btn.read-btn {
+        background: rgba(13, 111, 99, 0.12);
+        color: var(--accent-strong);
+      }
+
+      .action-btn.delete-btn {
+        color: var(--danger);
+      }
+
+      .action-btn.saved {
+        background: rgba(166, 124, 45, 0.16);
+        color: #7b5710;
+        border-color: rgba(166, 124, 45, 0.24);
+      }
+
+      .empty-state {
+        padding: 36px 24px;
+        border-radius: var(--radius-lg);
+        border: 1px dashed rgba(35, 41, 48, 0.18);
+        background: rgba(255, 255, 255, 0.5);
+        color: var(--ink-soft);
+        text-align: center;
+      }
+
+      .empty-state h2 {
+        margin: 0 0 10px;
+        font-family: var(--masthead-font);
+        font-size: 2rem;
+        color: var(--ink);
+      }
+
+      @media (max-width: 900px) {
+        .meta-bar,
+        .cards {
+          grid-template-columns: 1fr;
+        }
+
+        .card {
+          min-height: 0;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .shell {
+          width: min(calc(100% - 16px), var(--content-width));
+          padding-top: 16px;
+        }
+
+        .masthead-inner {
+          padding: 22px 18px;
+        }
+
+        h1 {
+          max-width: none;
+          font-size: clamp(2.3rem, 13vw, 3.6rem);
+        }
+
+        .card,
+        .empty-state {
+          padding: 18px;
+          border-radius: 22px;
+        }
+
+        .card-footer {
+          align-items: stretch;
+        }
+
+        .actions {
+          width: 100%;
+        }
+
+        .actions .action-btn {
+          flex: 1 1 auto;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="masthead">
+        <div class="masthead-inner">
+          <div class="eyebrow">Daily Digest • Morning Brief</div>
+          <h1>Morning Brief</h1>
+          <p class="lede">
+            Curated signals across markets, startups, AI, digital products, and India’s job landscape.
+            Read, save, or clear articles on this device only.
+          </p>
+          <div class="meta-bar">
+            <div class="meta-chip">
+              <strong>Today</strong>
+              <span id="today-line">Loading...</span>
+            </div>
+            <div class="meta-chip">
+              <strong>Last Generated</strong>
+              <span id="generated-line">Loading...</span>
+            </div>
+            <div class="meta-chip">
+              <strong>Storage</strong>
+              <span>This browser only. No sync across devices.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Digest controls">
+        <div class="tabs" id="tabs"></div>
+        <button class="refresh-btn" id="refresh-btn" type="button">Refresh Today’s Brief</button>
+      </section>
+
+      <p class="info-note">
+        “Read” opens the article and hides it from this device. “Delete” hides it here. “Save” keeps it in
+        your Saved tab until you remove it.
+      </p>
+
+      <section id="cards" class="cards" aria-live="polite"></section>
+    </main>
+
+    <script>
+      const BUILD_INFO = {
+        "generatedAtIso": "2026-04-11T08:00:00+05:30",
+        "timezoneLabel": "IST"
+      };
+
+      const ARTICLES = [
+        {
+          "topicId": "big-fintech",
+          "title": "India payments platforms sharpen merchant offerings",
+          "summary": "Fintech platforms are expanding beyond payments into credit, reconciliation, and embedded software for merchants. The near-term story is distribution depth and wallet share rather than pure user growth.",
+          "source": "Sample Brief",
+          "url": "https://example.com/big-fintech",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        },
+        {
+          "topicId": "vc-pe",
+          "title": "Late-stage investors lean harder on profitability narratives",
+          "summary": "Growth rounds are still happening, but firms are rewarding cleaner margins and more obvious paths to cash generation. Founders are adjusting messaging away from raw topline momentum.",
+          "source": "Sample Brief",
+          "url": "https://example.com/vc-pe",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        },
+        {
+          "topicId": "india-markets",
+          "title": "Domestic flows keep mutual fund participation in focus",
+          "summary": "SIP flows and domestic participation continue to shape the conversation around market resilience. Fund positioning and retail sentiment remain key signals for the next leg of market moves.",
+          "source": "Sample Brief",
+          "url": "https://example.com/india-markets",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        },
+        {
+          "topicId": "ai",
+          "title": "AI launches are shifting from model announcements to workflow products",
+          "summary": "The center of gravity is moving toward agents, copilots, and vertical tools that automate real work. Teams are increasingly judged on deployment quality, not just benchmark improvements.",
+          "source": "Sample Brief",
+          "url": "https://example.com/ai",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        },
+        {
+          "topicId": "digital-products",
+          "title": "Creators keep bundling templates, newsletters, and niche software",
+          "summary": "Solo operators are packaging audiences into multiple product lines instead of relying on a single revenue stream. Smaller tools and repeatable assets continue to outperform broad consumer bets.",
+          "source": "Sample Brief",
+          "url": "https://example.com/digital-products",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        },
+        {
+          "topicId": "startup-ecosystem",
+          "title": "Startup operators are re-prioritizing distribution efficiency",
+          "summary": "The operating theme remains disciplined growth, faster feedback loops, and tighter GTM experiments. Ecosystem attention is returning to repeatability and capital efficiency.",
+          "source": "Sample Brief",
+          "url": "https://example.com/startup-ecosystem",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        },
+        {
+          "topicId": "jobs-skills",
+          "title": "AI fluency and revenue-adjacent roles stay high-signal in India hiring",
+          "summary": "Employers are signaling demand for applied AI skills, analytics, product operations, and business-facing technical roles. Practical deployment ability is becoming more valuable than generic certification.",
+          "source": "Sample Brief",
+          "url": "https://example.com/jobs-skills",
+          "published": "Apr 11",
+          "addedAt": "2026-04-11T08:00:00+05:30"
+        }
+      ];
+
+      const TOPICS = [
+        { id: "all", label: "All" },
+        { id: "big-fintech", label: "Big Fintech (IN/US)" },
+        { id: "vc-pe", label: "VC / PE investing" },
+        { id: "india-markets", label: "India markets" },
+        { id: "ai", label: "AI" },
+        { id: "digital-products", label: "Digital products" },
+        { id: "startup-ecosystem", label: "Startup ecosystem" },
+        { id: "jobs-skills", label: "Jobs & skills (India)" },
+        { id: "saved", label: "Saved" }
+      ];
+
+      const STORAGE_KEYS = {
+        read: "dailyDigest.read",
+        deleted: "dailyDigest.deleted",
+        saved: "dailyDigest.saved"
+      };
+
+      const topicNames = Object.fromEntries(
+        TOPICS.filter((topic) => topic.id !== "all" && topic.id !== "saved").map((topic) => [topic.id, topic.label])
+      );
+
+      const state = {
+        activeTab: "all",
+        read: new Set(loadList(STORAGE_KEYS.read)),
+        deleted: new Set(loadList(STORAGE_KEYS.deleted)),
+        saved: new Set(loadList(STORAGE_KEYS.saved))
+      };
+
+      const cardsEl = document.getElementById("cards");
+      const tabsEl = document.getElementById("tabs");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const todayLine = document.getElementById("today-line");
+      const generatedLine = document.getElementById("generated-line");
+
+      initialize();
+
+      function initialize() {
+        todayLine.textContent = formatDateLabel(new Date(), true);
+        generatedLine.textContent = formatGeneratedLabel(BUILD_INFO.generatedAtIso, BUILD_INFO.timezoneLabel);
+        renderTabs();
+        renderCards();
+
+        refreshBtn.addEventListener("click", () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set("_r", Date.now().toString());
+          window.location.replace(url.toString());
+        });
+      }
+
+      function renderTabs() {
+        const counts = getCounts();
+
+        tabsEl.innerHTML = TOPICS.map((topic) => {
+          const isActive = topic.id === state.activeTab;
+          const count = counts[topic.id] ?? 0;
+          return `
+            <button class="tab-btn ${isActive ? "active" : ""}" type="button" data-tab="${escapeHtml(topic.id)}" aria-pressed="${String(isActive)}">
+              ${escapeHtml(topic.label)} <small>${count}</small>
+            </button>
+          `;
+        }).join("");
+
+        Array.from(tabsEl.querySelectorAll("[data-tab]")).forEach((button) => {
+          button.addEventListener("click", () => {
+            state.activeTab = button.dataset.tab;
+            renderTabs();
+            renderCards();
+          });
+        });
+      }
+
+      function renderCards() {
+        const visible = getVisibleArticles(state.activeTab);
+
+        if (!visible.length) {
+          cardsEl.innerHTML = `
+            <div class="empty-state">
+              <h2>No stories here right now</h2>
+              <p>Try another tab, refresh for the newest build, or clear this browser’s local storage to restore hidden items.</p>
+            </div>
+          `;
+          return;
+        }
+
+        cardsEl.innerHTML = visible.map(renderCard).join("");
+
+        Array.from(cardsEl.querySelectorAll("[data-action]")).forEach((button) => {
+          button.addEventListener("click", (event) => {
+            const { action, url } = event.currentTarget.dataset;
+            if (!url) {
+              return;
+            }
+
+            if (action === "read") {
+              state.read.add(url);
+              persistSet(STORAGE_KEYS.read, state.read);
+              window.open(url, "_blank", "noopener,noreferrer");
+            }
+
+            if (action === "delete") {
+              state.deleted.add(url);
+              persistSet(STORAGE_KEYS.deleted, state.deleted);
+            }
+
+            if (action === "save") {
+              toggleSaved(url);
+            }
+
+            if (action === "remove") {
+              state.saved.delete(url);
+              persistSet(STORAGE_KEYS.saved, state.saved);
+            }
+
+            renderTabs();
+            renderCards();
+          });
+        });
+      }
+
+      function renderCard(article) {
+        const isSaved = state.saved.has(article.url);
+        const savedAction = state.activeTab === "saved"
+          ? `<button class="action-btn delete-btn" type="button" data-action="remove" data-url="${escapeAttribute(article.url)}">Remove</button>`
+          : `<button class="action-btn ${isSaved ? "saved" : ""}" type="button" data-action="save" data-url="${escapeAttribute(article.url)}">${isSaved ? "Saved" : "Save"}</button>`;
+
+        return `
+          <article class="card">
+            <div class="card-header">
+              <div class="tag-row">
+                <span class="tag">${escapeHtml(topicNames[article.topicId] || article.topicId)}</span>
+                <span class="tag subtle-tag">${escapeHtml(article.published || "")}</span>
+              </div>
+            </div>
+            <h2 class="card-title">
+              <a href="${escapeAttribute(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
+            </h2>
+            <p class="summary">${escapeHtml(article.summary)}</p>
+            <div class="card-footer">
+              <div class="source-line"><strong>${escapeHtml(article.source)}</strong> • ${escapeHtml(article.published || "")}</div>
+              <div class="actions">
+                <button class="action-btn read-btn" type="button" data-action="read" data-url="${escapeAttribute(article.url)}">Read</button>
+                <button class="action-btn delete-btn" type="button" data-action="delete" data-url="${escapeAttribute(article.url)}">Delete</button>
+                ${savedAction}
+              </div>
+            </div>
+          </article>
+        `;
+      }
+
+      function getCounts() {
+        const counts = { all: 0, saved: 0 };
+
+        TOPICS.forEach((topic) => {
+          if (!(topic.id in counts)) {
+            counts[topic.id] = 0;
+          }
+        });
+
+        ARTICLES.forEach((article) => {
+          const isDeleted = state.deleted.has(article.url);
+          const isRead = state.read.has(article.url);
+          const isSaved = state.saved.has(article.url);
+
+          if (isSaved && !isDeleted) {
+            counts.saved += 1;
+          }
+
+          if (isDeleted || isRead) {
+            return;
+          }
+
+          counts.all += 1;
+          counts[article.topicId] = (counts[article.topicId] || 0) + 1;
+        });
+
+        return counts;
+      }
+
+      function getVisibleArticles(tabId) {
+        if (tabId === "saved") {
+          return ARTICLES.filter((article) => state.saved.has(article.url) && !state.deleted.has(article.url));
+        }
+
+        const base = ARTICLES.filter((article) => !state.read.has(article.url) && !state.deleted.has(article.url));
+        if (tabId === "all") {
+          return base;
+        }
+        return base.filter((article) => article.topicId === tabId);
+      }
+
+      function toggleSaved(url) {
+        if (state.saved.has(url)) {
+          state.saved.delete(url);
+        } else {
+          state.saved.add(url);
+        }
+        persistSet(STORAGE_KEYS.saved, state.saved);
+      }
+
+      function loadList(key) {
+        try {
+          const raw = localStorage.getItem(key);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function persistSet(key, values) {
+        try {
+          localStorage.setItem(key, JSON.stringify(Array.from(values)));
+        } catch (error) {
+          console.warn("Unable to persist digest state for this browser.", error);
+        }
+      }
+
+      function formatGeneratedLabel(isoString, timezoneLabel) {
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) {
+          return isoString;
+        }
+        const formatter = new Intl.DateTimeFormat("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short"
+        });
+        return `${formatter.format(date)} ${timezoneLabel}`;
+      }
+
+      function formatDateLabel(date, includeWeekday) {
+        return new Intl.DateTimeFormat("en-IN", {
+          weekday: includeWeekday ? "long" : undefined,
+          day: "numeric",
+          month: "long",
+          year: "numeric"
+        }).format(date);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function escapeAttribute(value) {
+        return escapeHtml(value);
+      }
+    </script>
+  </body>
+</html>
